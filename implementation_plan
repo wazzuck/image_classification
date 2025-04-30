@@ -1,0 +1,12 @@
+I have created the following files inside the image_classification directory:
+
+- README.md: Contains step-by-step instructions for building the classifier.
+- requirements.txt: Lists the necessary Python packages.
+- dataset.py: Includes comments and pseudocode for creating the MNIST dataset loader.
+- model.py: Includes comments and pseudocode for defining the Transformer classifier model.
+- train.py: Includes comments and pseudocode for the training and validation loop.
+- evaluate.py: Includes comments and pseudocode for evaluating a trained model.
+
+You can now follow the instructions in the README.md and fill in the actual 
+Python code in the .py files based on the provided pseudocode. 
+Let me know if you need help with implementing any specific part!
