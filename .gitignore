@@ -6,7 +6,6 @@ __pycache__/
 text8
 wandb*
 *.dat
-*.txt
 
 # C extensions
 *.so
