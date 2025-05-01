@@ -1,0 +1,107 @@
+**Project Goal:**
+
+To build an AI model (using a Transformer architecture) that can look at an image made of four MNIST handwritten digits arranged in a 2x2 grid and then correctly predict the sequence of those four digits (e.g., reading them top-left, top-right, bottom-left, bottom-right).
+
+**High-Level Steps (Requirements):**
+Yes, that's correct! Here's how the process works:
+
+1. **Training Phase:**
+   - We use the raw MNIST dataset (70,000 images of single digits)
+   - For each training example, we randomly select 4 MNIST images
+   - We create a 2x2 grid (56x56 pixels) by combining these 4 images
+   - The model learns to:
+     * Break down the tiled image into patches
+     * Understand the spatial relationships between digits
+     * Generate the correct sequence of digits (top-left → top-right → bottom-left → bottom-right)
+
+2. **Inference Phase:**
+   - Given a new 2x2 tiled image, the model:
+     * Uses the encoder to process the entire image
+     * Uses the decoder to generate the sequence one digit at a time
+     * Starts with the <start> token
+     * Predicts each digit in sequence using:
+       - The processed image information from the encoder
+       - The previously predicted digits
+     * Stops when it predicts 4 digits or an <end> token
+
+The key insight is that the model learns to:
+- Break down the tiled image into meaningful parts
+- Understand the spatial arrangement of digits
+- Generate the sequence in the correct order
+- All without being explicitly taught how to do any of these steps!
+
+This is possible because:
+- The transformer architecture can learn spatial relationships through attention
+- The encoder-decoder structure allows the model to process the image and generate the sequence
+- The training process teaches the model to associate tiled images with their correct digit sequences
+You're right to question this! Let me clarify the data preparation process:
+
+1. **Source Data:**
+   - We use the original MNIST dataset (70,000 images of single digits)
+   - Each image is 28x28 pixels
+   - Each image has a label (0-9)
+
+2. **Training Sample Generation:**
+   - For each training example, we randomly select 4 MNIST images
+   - We create a 2x2 grid (56x56 pixels) by combining these 4 images
+   - The sequence order is: top-left → top-right → bottom-left → bottom-right
+
+3. **Why This Approach:**
+   - We don't train on individual MNIST images because our goal is to recognize sequences in a 2x2 grid
+   - By randomly selecting 4 images for each training example, we:
+     * Create diverse training samples
+     * Force the model to learn to recognize digits in different positions
+     * Generate many more training examples than the original 70,000
+     * Prevent the model from memorizing specific combinations
+
+4. **Sequence Format:**
+   - Input sequence: `<start>, digit1, digit2, digit3, digit4`
+   - Target sequence: `digit1, digit2, digit3, digit4, <end>`
+   - Special tokens:
+     * `<start>`: Signals the beginning of sequence generation
+     * `<end>`: Signals the end of sequence generation
+     * `<pad>`: Used to make all sequences the same length
+
+This approach allows us to:
+- Generate an unlimited number of training examples
+- Train the model to handle any combination of digits
+- Learn the spatial relationships between digits in the grid
+- Generate sequences in the correct order
+
+1.  **Prepare the Data:**
+    *   Create a way to automatically generate training examples. Each example needs:
+        *   A 56x56 pixel image made by randomly picking four MNIST digit images and arranging them in a 2x2 grid.
+        *   A corresponding "input sequence" for the AI (like: `<start>, digit1, digit2, digit3, digit4`).
+        *   A corresponding "target sequence" for the AI to aim for (like: `digit1, digit2, digit3, digit4, <end>`).
+    *   Handle special markers like `<start>` (to tell the AI to begin) and `<end>` (to signal the end of the sequence).
+
+2.  **Build the AI Model (Encoder-Decoder Transformer):**
+    *   **Encoder Part:** This part looks at the input 56x56 image.
+        *   It breaks the image into smaller patches (like 14x14 pixels).
+        *   It converts these patches into a format the AI understands (embeddings).
+        *   It adds information about the original position of each patch.
+        *   It processes these patch representations through several Transformer Encoder layers (using multi-head attention and feed-forward networks) to understand the image content.
+    *   **Decoder Part:** This part generates the sequence of digits.
+        *   It takes the sequence provided so far (starting with `<start>`).
+        *   It converts the sequence tokens into embeddings.
+        *   It adds positional information to the sequence.
+        *   It processes the sequence through several Transformer Decoder layers. These layers use:
+            *   Masked multi-head attention (to only look at previous tokens in the sequence it's generating).
+            *   Cross-attention (to look at the processed image information from the Encoder).
+            *   Feed-forward networks.
+    *   **Final Output Layer:** A simple layer that takes the Decoder's output and predicts the probability of each possible next digit (0-9) or the `<end>` token.
+
+3.  **Train the Model:**
+    *   Feed the model batches of the prepared data (tiled images, input sequences, target sequences).
+    *   Calculate how different the model's predictions are from the target sequence (using a suitable loss function like Cross-Entropy Loss).
+    *   Adjust the model's internal parameters (weights) using an optimizer (like Adam) to reduce the prediction error over many iterations (epochs).
+
+4.  **Evaluate the Model:**
+    *   Test the trained model on new tiled images it hasn't seen before.
+    *   Use a step-by-step (autoregressive) process:
+        *   Give the model the image and the `<start>` token.
+        *   Ask it to predict the first digit.
+        *   Feed the predicted first digit back into the model and ask for the second.
+        *   Repeat until it predicts four digits or an `<end>` token.
+    *   Compare the predicted sequence of digits to the actual sequence for the test images.
+    *   Calculate the accuracy (e.g., what percentage of digit sequences did it predict perfectly?). 

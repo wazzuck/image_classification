@@ -1,69 +1,78 @@
-# MNIST Transformer Image Classifier (Simplified)
+# MNIST Tiled Image Sequence Predictor (Encoder-Decoder Transformer)
 
-This guide provides step-by-step instructions to build a simplified Transformer-based image classifier for the MNIST dataset from scratch using PyTorch.
+This guide provides step-by-step instructions to build an Encoder-Decoder Transformer model for predicting the sequence of digits in a 2x2 tiled MNIST image, inspired by the original "Attention Is All You Need" paper and the Vision Transformer concept.
 
 ## Project Goal
 
-The goal is to create a model that takes a 28x28 MNIST digit image as input and predicts which digit (0-9) it represents, using a Transformer encoder architecture.
+The goal is to create a sequence-to-sequence model that:
+1. Takes a 56x56 image containing four MNIST digits arranged in a 2x2 grid as input.
+2. **Encodes** the image information using a Transformer Encoder.
+3. **Decodes** the encoded representation autoregressively to generate the sequence of the four digits present in the image (e.g., top-left, top-right, bottom-left, bottom-right).
 
 ## Steps
 
 1.  **Setup Environment:**
-    *   Create a project directory (e.g., `image_classification`).
-    *   Set up a Python virtual environment.
-    *   Create a `requirements.txt` file listing the necessary libraries (PyTorch, torchvision, datasets).
-    *   Install the dependencies: `pip install -r requirements.txt`.
+    *   Ensure you are in the `image_classification` directory.
+    *   Have a Python virtual environment activated.
+    *   Verify `requirements.txt` contains `torch`, `torchvision`, and `datasets`.
+    *   Install dependencies if needed: `pip install -r requirements.txt`.
 
 2.  **Create `dataset.py`:**
-    *   Implement a PyTorch `Dataset` class to load the MNIST dataset.
-    *   Use the `datasets` library to download and access MNIST.
-    *   Apply necessary transforms (e.g., `ToTensor`) to convert images to PyTorch tensors.
-    *   This script should provide data loaders for both training and testing splits.
+    *   Implement a PyTorch `Dataset` class (`TiledMNISTSeqDataset`) to generate the training data.
+    *   For each sample, randomly select four MNIST digits.
+    *   Create a 56x56 tiled image.
+    *   Define a vocabulary including digits 0-9 and special tokens like `<start>`, `<end>`, `<pad>`.
+    *   The dataset should return:
+        *   The 56x56 tiled image tensor.
+        *   The **input sequence** for the decoder (e.g., tensor for `<start> digit_tl digit_tr digit_bl digit_br`).
+        *   The **target output sequence** for calculating loss (e.g., tensor for `digit_tl digit_tr digit_bl digit_br <end>`).
 
 3.  **Create `model.py`:**
-    *   Define the building blocks of the Transformer encoder:
-        *   `ImageEmbedding`: Takes the raw image, divides it into patches (e.g., 4 patches of 14x14), flattens each patch, and projects it to an embedding dimension using a linear layer.
-        *   `PositionalEncoding`: Adds positional information to the patch embeddings. This can be learned (using `nn.Embedding`) or fixed (using sine/cosine functions).
-        *   `SelfAttentionBlock`: Implements a standard Transformer block containing multi-head self-attention, layer normalization, and a feed-forward network.
-        *   `TransformerEncoder`: Stacks multiple `SelfAttentionBlock` layers.
-    *   Define the main `TransformerClassifier` model:
-        *   It should take the image tensor as input.
-        *   Pass the image through `ImageEmbedding`.
-        *   Add positional encodings.
-        *   Pass the result through the `TransformerEncoder`.
-        *   Aggregate the output sequence (e.g., by taking the mean across the patch dimension).
-        *   Pass the aggregated representation through a final linear layer (classifier head) to get the logits for the 10 classes.
+    *   Define the **Encoder** components (similar to ViT encoder):
+        *   `ImageEmbedding`: Processes the 56x56 image (e.g., using patches like 14x14 or 7x7) into patch embeddings.
+        *   `PositionalEncoding` for image patches.
+        *   `TransformerEncoder` (stack of `SelfAttentionBlock`s) to process patch embeddings.
+    *   Define the **Decoder** components (similar to original Transformer decoder):
+        *   `nn.Embedding` for the output vocabulary (digits + special tokens).
+        *   `PositionalEncoding` for the output sequence.
+        *   `TransformerDecoderBlock`: Contains Masked Self-Attention, Cross-Attention (with Encoder output), Feed-Forward, Add & Norm layers.
+        *   `TransformerDecoder` (stack of `TransformerDecoderBlock`s).
+    *   Define the main `EncoderDecoderTransformer` model:
+        *   Takes the image and the decoder input sequence.
+        *   Passes the image through the Encoder.
+        *   Passes the input sequence and the Encoder output through the Decoder.
+        *   Applies a final linear layer to map Decoder output to vocabulary logits.
 
 4.  **Create `train.py`:**
-    *   Import the dataset and model classes.
-    *   Instantiate the model, loss function (e.g., `nn.CrossEntropyLoss`), and optimizer (e.g., `torch.optim.Adam`).
-    *   Create data loaders using the `Dataset` class from `dataset.py`.
+    *   Import the `TiledMNISTSeqDataset` and `EncoderDecoderTransformer`.
+    *   Instantiate the model, loss function (`nn.CrossEntropyLoss`, ignoring padding), and optimizer.
+    *   Create data loaders.
     *   Implement the training loop:
-        *   Iterate over epochs.
-        *   Iterate over batches from the training data loader.
-        *   Get images and labels from the batch.
-        *   Perform the forward pass: `outputs = model(images)`.
-        *   Calculate the loss: `loss = criterion(outputs, labels)`.
-        *   Perform the backward pass and optimizer step.
-    *   Implement an evaluation loop (within the training loop or separately):
-        *   Iterate over batches from the test data loader.
-        *   Perform the forward pass in evaluation mode (`model.eval()`, `with torch.no_grad():`).
-        *   Calculate test loss and accuracy.
-    *   Print or log training/validation metrics (loss, accuracy).
-    *   (Optional) Save the trained model's state dictionary.
+        *   Get the tiled image, decoder input sequence, and target output sequence.
+        *   Perform the forward pass: `output_logits = model(image, decoder_input_sequence)`.
+        *   Calculate the loss by comparing `output_logits` with the `target_output_sequence` (reshape logits and targets correctly for CrossEntropyLoss, often `[batch_size * seq_len, vocab_size]` vs `[batch_size * seq_len]`).
+        *   Perform backward pass and optimizer step.
+    *   Implement an evaluation loop (calculating loss on the test set, potentially sequence accuracy).
+    *   Print/log metrics.
+    *   (Optional) Save the model.
 
-5.  **Create `evaluate.py` (Optional but Recommended):**
-    *   Import the dataset and model classes.
-    *   Load a pre-trained model checkpoint.
-    *   Instantiate the test data loader.
-    *   Run the evaluation loop (similar to the one in `train.py`) on the test set.
-    *   Print the final test accuracy and loss.
+5.  **Create `evaluate.py`:**
+    *   Load a pre-trained `EncoderDecoderTransformer` model.
+    *   Instantiate the test data loader (may only need images if generating from scratch).
+    *   Implement **autoregressive decoding**:
+        *   Encode the input image once.
+        *   Start with a `<start>` token as the initial decoder input.
+        *   In a loop (up to max sequence length):
+            *   Pass the current decoder input sequence and encoded image through the decoder.
+            *   Get logits for the *next* token.
+            *   Select the token with the highest probability (argmax).
+            *   Append the predicted token to the decoder input sequence.
+            *   If `<end>` token is predicted, stop.
+        *   Compare the generated sequence with the true sequence.
+    *   Calculate metrics like full sequence accuracy or per-token accuracy.
+    *   Optionally display input tiles and their generated digit sequences.
 
-6.  **Run Training:**
-    *   Execute the training script: `python train.py`.
-    *   Monitor the output for loss and accuracy improvements.
+6.  **Run Training:** `python train.py`
+7.  **Run Evaluation:** `python evaluate.py`
 
-7.  **Run Evaluation:**
-    *   If you implemented `evaluate.py`, run it after training: `python evaluate.py`.
-
-This structured approach will guide you through implementing each component of the MNIST Transformer classifier. 
+This structured approach will guide you through implementing each component of the MNIST Tiled Image Sequence Predictor. 
